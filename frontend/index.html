@@ -1,9 +1,35 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NSE Options AI Monitor</title>
-<style>
-:root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef2ff;font:16px system-ui}main{max-width:1050px;margin:auto;padding:30px}h1{font-size:clamp(27px,5vw,42px)}.sub{color:#9ca9c4}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}.card{border:1px solid #34415c;border-radius:18px;background:#151e32;padding:24px}.tag{display:inline-block;padding:7px 12px;border-radius:99px;background:#283d37;color:#92e8b7;font-size:12px}small{color:#a4b1ca}footer{margin-top:40px;color:#9ca9c4}.status{padding:16px;border:1px solid #34415c;border-radius:12px;background:#151e32;line-height:1.8}.ok{color:#92e8b7}.bad{color:#ffb1a9}
-</style></head><body><main><div class="tag">READ-ONLY • NO LIVE QUOTES</div><h1>NSE Options AI Monitor</h1><p class="sub">ULTRACEMCO &amp; JSWSTEEL • Intraday / Swing Research</p><div class="grid"><section class="card"><h2>ULTRACEMCO</h2><small>Spot price</small><h1>—</h1><p class="sub">CE/PE OI · PCR · Volume · Breakouts</p><small>Awaiting verified market data</small></section><section class="card"><h2>JSWSTEEL</h2><small>Spot price</small><h1>—</h1><p class="sub">CE/PE OI · PCR · Volume · Breakouts</p><small>Awaiting verified market data</small></section></div><h2>System status</h2><div class="status"><div id="api">API: checking /health…</div><div id="market">Angel One market data: not connected</div><div>15-minute data collection: not enabled</div><div>Order placement: disabled</div></div><footer>No live quotes, no verified signals, and no automated trading. An API health response does not mean market data is connected.</footer></main>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NSE Options AI Monitor</title>
+<style>:root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef2ff;font:16px system-ui}main{max-width:1080px;margin:auto;padding:24px}h1{font-size:clamp(26px,5vw,42px)}.sub{color:#a4b1ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}.card,.status{border:1px solid #34415c;border-radius:18px;background:#151e32;padding:22px}.tag{display:inline-block;padding:7px 12px;border-radius:99px;background:#283d37;color:#92e8b7;font-size:12px}.wait{color:#ffd18b}.bad{color:#ffb1a9}.ok{color:#92e8b7}.details{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#b7c4d9}.details strong{display:block;color:#f2f5ff;font-size:15px}footer{margin-top:30px;color:#a4b1ca;font-size:13px}small{color:#a4b1ca}</style></head>
+<body><main><div class="tag">READ-ONLY · NO AUTO TRADING</div><h1>NSE Options AI Monitor</h1><p class="sub">ULTRACEMCO &amp; JSWSTEEL · Intraday and Swing · IST timestamps</p>
+<div id="cards" class="grid"><section class="card">Loading verified signal status…</section></div>
+<h2>System status</h2><div class="status"><div id="api">Checking API…</div><div id="broker">Angel One: not connected</div><div>Alerts: meaningful verified changes only; not enabled yet</div><div>Order placement: disabled</div></div>
+<footer>Signals are research aids, not guaranteed buy/sell advice. WAIT means no verified actionable setup. Missing prices, strikes, expiry, entry, stops, targets and risk are shown as unavailable, never estimated. Options can lose their entire premium.</footer></main>
 <script>
-(async()=>{const el=document.getElementById('api');try{const response=await fetch('/health',{cache:'no-store',headers:{'Accept':'application/json'}});const data=await response.json();if(!response.ok||data.ok!==true||data.read_only!==true)throw Error('Unexpected API response');el.className='ok';el.textContent='API: online (read-only)';document.getElementById('market').textContent='Angel One market data: '+(data.data_connected===true?'connected':'not connected');}catch(e){el.className='bad';el.textContent='API: unavailable or not configured';}})();
+const cards=document.getElementById('cards'),api=document.getElementById('api');
+const safe=v=>v===null||v===undefined||v===''?'Unavailable':String(v);
+const field=(name,value)=>'<div>'+name+'<strong>'+safe(value)+'</strong></div>';
+const money=v=>v==null?null:'₹'+Number(v).toLocaleString('en-IN');
+async function load(){
+ try{
+  const r=await fetch('/api/signals',{cache:'no-store',headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const data=await r.json();
+  if(!data.read_only||data.order_placement_enabled!==false||!Array.isArray(data.signals))throw new Error('Invalid response');
+  api.textContent='API: online · read-only';api.className='ok';
+  document.getElementById('broker').textContent='Angel One: '+(data.data_connected?'connected':'not connected');
+  cards.replaceChildren();
+  for(const s of data.signals){
+   const section=document.createElement('section');section.className='card';
+   const title=document.createElement('h2');title.textContent=s.symbol+' · '+s.style;
+   const state=document.createElement('h3');state.textContent=s.signal;state.className=s.signal==='WAIT'?'wait':'ok';
+   const reason=document.createElement('p');reason.className='sub';reason.textContent=s.reason;
+   const details=document.createElement('div');details.className='details';
+   const values=[['Spot',money(s.spot)],['Futures',money(s.futures)],['Strike',s.strike],['Expiry',s.expiry],['CE/PE',s.option_type],['Entry',money(s.entry)],['Stop-loss',money(s.stop_loss)],['Target 1',money(s.target_1)],['Target 2',money(s.target_2)],['Lot cost',money(s.estimated_lot_cost)],['Risk',money(s.max_planned_risk)],['PCR',s.pcr],['Call OI',s.call_oi],['Put OI',s.put_oi],['Volume',s.volume],['Bid / Ask',s.bid==null||s.ask==null?null:s.bid+' / '+s.ask],['Source',s.source],['As of (IST)',s.as_of_ist]];
+   for(const [label,value] of values){const div=document.createElement('div');const name=document.createTextNode(label);const strong=document.createElement('strong');strong.textContent=safe(value);div.append(name,strong);details.append(div);}
+   section.append(title,state,reason,details);cards.append(section);
+  }
+ }catch(e){api.textContent='API unavailable: '+e.message;api.className='bad';cards.textContent='No verified signals available. WAIT — backend could not be reached.';}
+}
+load();
 </script></body></html>
