@@ -1,0 +1,13 @@
+services:
+  monitor-api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}
+    ports:
+      - "127.0.0.1:8091:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
